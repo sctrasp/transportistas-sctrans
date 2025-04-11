@@ -13,7 +13,6 @@ exports.handler = async (event) => {
             };
         }
 
-        // Configurazione SMTP
         const transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST,
             port: process.env.SMTP_PORT,
@@ -24,7 +23,6 @@ exports.handler = async (event) => {
             },
         });
 
-        // Prepara e invia email
         const sendEmailPromises = emails.map((email) => {
             return transporter.sendMail({
                 from: `"Sctrans 👋" <${process.env.SMTP_USER}>`,
