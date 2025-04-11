@@ -1,148 +1,140 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Solicitar Presupuesto</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid black; padding: 10px; text-align: left; }
-    th { background-color: #0033a0; color: white; }
-    input, button, textarea { padding: 10px; margin: 10px; }
-    textarea { width: 80%; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Buscar Transportistas</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 10px; text-align: left; }
+        th { background-color: #0033a0; color: white; }
+        input, button, textarea { padding: 10px; margin: 10px; }
+    </style>
 </head>
 <body>
-  <h1>Buscar Transportistas</h1>
-  <label>Origen:</label>
-  <input type="text" id="origen" placeholder="Ingrese origen" />
-  <label>Destino:</label>
-  <input type="text" id="destino" placeholder="Ingrese destino" />
-  <button onclick="buscarTransportistas()">Buscar</button>
+    <h1>Buscar Transportistas</h1>
+    <label for="origen">Origen:</label>
+    <input type="text" id="origen" placeholder="Ingrese origen" />
+    <label for="destino">Destino:</label>
+    <input type="text" id="destino" placeholder="Ingrese destino" />
+    <button onclick="buscarTransportistas()">Buscar</button>
 
-  <div id="accionesSeleccion" style="display: none; margin-top: 20px;">
-    <button onclick="seleccionarTodos()">Seleccionar todos</button>
-    <button onclick="deseleccionarTodos()">Deseleccionar todos</button>
-  </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Seleccionar</th>
+                <th>Nombre Transportista</th>
+                <th>Total Viajes</th>
+                <th>Dirección</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+        <tbody id="resultado"></tbody>
+    </table>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Seleccionar</th>
-        <th>Nombre Transportista</th>
-        <th>Total Viajes</th>
-        <th>Dirección</th>
-        <th>Teléfono</th>
-        <th>Email</th>
-      </tr>
-    </thead>
-    <tbody id="resultado"></tbody>
-  </table>
+    <h2>Solicitar Presupuesto</h2>
+    <textarea id="mensaje" placeholder="Escribe tu mensaje aquí..." rows="5" cols="50"></textarea><br/>
+    <button onclick="enviarPresupuesto()">Pide presupuesto</button>
 
-  <h2>Solicitar Presupuesto</h2>
-  <textarea id="mensajePresupuesto" placeholder="Escribe tu solicitud de presupuesto..." rows="5"></textarea><br />
-  <input type="file" id="fileAllegato" /><br />
-  <button onclick="enviarSolicitud()">Pide presupuesto</button>
+    <script>
+        const SUPABASE_URL = "https://dikaacfsinyptsgxbuyd.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA";
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <script>
-    const supabase = window.supabase.createClient(
-      "https://dikaacfsinyptsgxbuyd.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
-    );
+        async function buscarTransportistas() {
+            const origen = document.getElementById("origen").value.trim().toLowerCase();
+            const destino = document.getElementById("destino").value.trim().toLowerCase();
+            const resultadoTabla = document.getElementById("resultado");
+            resultadoTabla.innerHTML = "";
 
-    async function buscarTransportistas() {
-      let origen = document.getElementById("origen").value.trim().toLowerCase();
-      let destino = document.getElementById("destino").value.trim().toLowerCase();
-      let resultadoTabla = document.getElementById("resultado");
-      resultadoTabla.innerHTML = "";
-      document.getElementById("accionesSeleccion").style.display = "none";
+            if (origen === "" || destino === "") {
+                alert("⚠️ Por favor, ingrese origen y destino.");
+                return;
+            }
 
-      if (origen === "" || destino === "") {
-        alert("⚠️ Por favor, ingrese origen y destino.");
-        return;
-      }
+            const { data, error } = await supabase
+                .from("transportistas")
+                .select("nombre_transportista, total_viajes, direccion, telefono, telefono_movil, email")
+                .ilike("origen", `%${origen}%`)
+                .ilike("destino", `%${destino}%`);
 
-      let { data, error } = await supabase
-        .from("transportistas")
-        .select("nombre_transportista, total_viajes, direccion, telefono, telefono_movil, email")
-        .ilike("origen", `%${origen}%`)
-        .ilike("destino", `%${destino}%`);
+            if (error) {
+                console.error("❌ Error en la consulta:", error);
+                alert("❌ Hubo un problema al obtener los transportistas.");
+                return;
+            }
 
-      if (error || data.length === 0) {
-        resultadoTabla.innerHTML = "<tr><td colspan='6'>❌ No se encontraron transportistas.</td></tr>";
-        return;
-      }
+            if (data.length === 0) {
+                resultadoTabla.innerHTML = "<tr><td colspan='6'>❌ No se encontraron transportistas.</td></tr>";
+                return;
+            }
 
-      document.getElementById("accionesSeleccion").style.display = "block";
+            let transportistasAgrupados = {};
 
-      let transportistasAgrupados = {};
+            data.forEach(transp => {
+                let nombre = transp.nombre_transportista;
 
-      data.forEach(t => {
-        let nombre = t.nombre_transportista;
-        if (!transportistasAgrupados[nombre]) {
-          transportistasAgrupados[nombre] = {
-            total_viajes: 0,
-            direccion: t.direccion || "-",
-            telefono: t.telefono || t.telefono_movil || "-",
-            email: t.email || "-"
-          };
+                if (!transportistasAgrupados[nombre]) {
+                    transportistasAgrupados[nombre] = {
+                        total_viajes: 0,
+                        direccion: transp.direccion || "-",
+                        telefono: transp.telefono || transp.telefono_movil || "-",
+                        email: transp.email || "-",
+                    };
+                }
+
+                transportistasAgrupados[nombre].total_viajes += transp.total_viajes || 0;
+            });
+
+            Object.keys(transportistasAgrupados).forEach(nombre => {
+                const transp = transportistasAgrupados[nombre];
+
+                const fila = `<tr>
+                    <td><input type="checkbox" name="correo" value="${transp.email}" /></td>
+                    <td>${nombre}</td>
+                    <td>${transp.total_viajes}</td>
+                    <td>${transp.direccion}</td>
+                    <td>${transp.telefono}</td>
+                    <td>${transp.email}</td>
+                </tr>`;
+
+                resultadoTabla.innerHTML += fila;
+            });
         }
-        transportistasAgrupados[nombre].total_viajes += t.total_viajes || 0;
-      });
 
-      Object.keys(transportistasAgrupados).forEach(nombre => {
-        let t = transportistasAgrupados[nombre];
-        let fila = `<tr>
-          <td><input type="checkbox" class="seleccionarTransportista" data-email="${t.email}" data-nombre="${nombre}"></td>
-          <td>${nombre}</td>
-          <td>${t.total_viajes}</td>
-          <td>${t.direccion}</td>
-          <td>${t.telefono}</td>
-          <td>${t.email}</td>
-        </tr>`;
-        resultadoTabla.innerHTML += fila;
-      });
-    }
+        function enviarPresupuesto() {
+            const selectedEmails = [...document.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+            const mensaje = document.getElementById("mensaje").value;
 
-    function seleccionarTodos() {
-      document.querySelectorAll(".seleccionarTransportista").forEach(c => c.checked = true);
-    }
+            if (selectedEmails.length === 0) {
+                alert("Por favor, seleccione al menos un transportista.");
+                return;
+            }
 
-    function deseleccionarTodos() {
-      document.querySelectorAll(".seleccionarTransportista").forEach(c => c.checked = false);
-    }
-
-    async function enviarSolicitud() {
-      const mensaje = document.getElementById("mensajePresupuesto").value.trim();
-      const archivo = document.getElementById("fileAllegato").files[0];
-
-      const seleccionados = Array.from(document.querySelectorAll(".seleccionarTransportista:checked"))
-        .map(c => ({
-          email: c.getAttribute("data-email"),
-          nombre: c.getAttribute("data-nombre")
-        }))
-        .filter(t => t.email && t.email !== "-");
-
-      if (seleccionados.length === 0) {
-        alert("⚠️ Por favor, selecciona al menos un transportista.");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("mensaje", mensaje);
-      formData.append("transportistas", JSON.stringify(seleccionados));
-      if (archivo) formData.append("allegato", archivo);
-
-      const response = await fetch("/.netlify/functions/sendEmail", {
-        method: "POST",
-        body: formData
-      });
-
-      const result = await response.text();
-      alert(result);
-    }
-  </script>
+            fetch("/.netlify/functions/sendEmail", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    emails: selectedEmails,
+                    mensaje: mensaje
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || "Presupuesto solicitado correctamente!");
+            })
+            .catch(error => {
+                console.error("Error al enviar el presupuesto:", error);
+                alert("Ocurrió un error al enviar el presupuesto.");
+            });
+        }
+    </script>
 </body>
 </html>
