@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Solicitar Presupuesto</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid black; padding: 10px; text-align: left; }
+    th { background-color: #0033a0; color: white; }
+    input, button, textarea { padding: 10px; margin: 10px; }
+    textarea { width: 80%; }
+  </style>
+</head>
+<body>
+  <h1>Buscar Transportistas</h1>
+  <label>Origen:</label>
+  <input type="text" id="origen" placeholder="Ingrese origen" />
+  <label>Destino:</label>
+  <input type="text" id="destino" placeholder="Ingrese destino" />
+  <button onclick="buscarTransportistas()">Buscar</button>
+
+  <div id="accionesSeleccion" style="display: none; margin-top: 20px;">
+    <button onclick="seleccionarTodos()">Seleccionar todos</button>
+    <button onclick="deseleccionarTodos()">Deseleccionar todos</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Seleccionar</th>
+        <th>Nombre Transportista</th>
+        <th>Total Viajes</th>
+        <th>Dirección</th>
+        <th>Teléfono</th>
+        <th>Email</th>
+      </tr>
+    </thead>
+    <tbody id="resultado"></tbody>
+  </table>
+
+  <h2>Solicitar Presupuesto</h2>
+  <textarea id="mensajePresupuesto" placeholder="Escribe tu solicitud de presupuesto..." rows="5"></textarea><br />
+  <input type="file" id="fileAllegato" /><br />
+  <button onclick="enviarSolicitud()">Pide presupuesto</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    const supabase = window.supabase.createClient(
+      "https://dikaacfsinyptsgxbuyd.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
+    );
+
+    async function buscarTransportistas() {
+      let origen = document.getElementById("origen").value.trim().toLowerCase();
+      let destino = document.getElementById("destino").value.trim().toLowerCase();
+      let resultadoTabla = document.getElementById("resultado");
+      resultadoTabla.innerHTML = "";
+      document.getElementById("accionesSeleccion").style.display = "none";
+
+      if (origen === "" || destino === "") {
+        alert("⚠️ Por favor, ingrese origen y destino.");
+        return;
+      }
+
+      let { data, error } = await supabase
+        .from("transportistas")
+        .select("nombre_transportista, total_viajes, direccion, telefono, telefono_movil, email")
+        .ilike("origen", `%${origen}%`)
+        .ilike("destino", `%${destino}%`);
+
+      if (error || data.length === 0) {
+        resultadoTabla.innerHTML = "<tr><td colspan='6'>❌ No se encontraron transportistas.</td></tr>";
+        return;
+      }
+
+      document.getElementById("accionesSeleccion").style.display = "block";
+
+      let transportistasAgrupados = {};
+
+      data.forEach(t => {
+        let nombre = t.nombre_transportista;
+        if (!transportistasAgrupados[nombre]) {
+          transportistasAgrupados[nombre] = {
+            total_viajes: 0,
+            direccion: t.direccion || "-",
+            telefono: t.telefono || t.telefono_movil || "-",
+            email: t.email || "-"
+          };
+        }
+        transportistasAgrupados[nombre].total_viajes += t.total_viajes || 0;
+      });
+
+      Object.keys(transportistasAgrupados).forEach(nombre => {
+        let t = transportistasAgrupados[nombre];
+        let fila = `<tr>
+          <td><input type="checkbox" class="seleccionarTransportista" data-email="${t.email}" data-nombre="${nombre}"></td>
+          <td>${nombre}</td>
+          <td>${t.total_viajes}</td>
+          <td>${t.direccion}</td>
+          <td>${t.telefono}</td>
+          <td>${t.email}</td>
+        </tr>`;
+        resultadoTabla.innerHTML += fila;
+      });
+    }
+
+    function seleccionarTodos() {
+      document.querySelectorAll(".seleccionarTransportista").forEach(c => c.checked = true);
+    }
+
+    function deseleccionarTodos() {
+      document.querySelectorAll(".seleccionarTransportista").forEach(c => c.checked = false);
+    }
+
+    async function enviarSolicitud() {
+      const mensaje = document.getElementById("mensajePresupuesto").value.trim();
+      const archivo = document.getElementById("fileAllegato").files[0];
+
+      const seleccionados = Array.from(document.querySelectorAll(".seleccionarTransportista:checked"))
+        .map(c => ({
+          email: c.getAttribute("data-email"),
+          nombre: c.getAttribute("data-nombre")
+        }))
+        .filter(t => t.email && t.email !== "-");
+
+      if (seleccionados.length === 0) {
+        alert("⚠️ Por favor, selecciona al menos un transportista.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("mensaje", mensaje);
+      formData.append("transportistas", JSON.stringify(seleccionados));
+      if (archivo) formData.append("allegato", archivo);
+
+      const response = await fetch("/.netlify/functions/sendEmail", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await response.text();
+      alert(result);
+    }
+  </script>
+</body>
+</html>
