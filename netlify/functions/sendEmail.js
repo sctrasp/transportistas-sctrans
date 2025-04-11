@@ -18,7 +18,7 @@ exports.handler = async (event) => {
                 body: JSON.stringify({ error: "No emails provided." }),
             };
         }
-
+        const messaggioFormattato = mensaje.replace(/\n/g, "<br>");
         // Debug SMTP config
         console.log("SMTP config:", {
             host: process.env.SMTP_HOST,
@@ -54,7 +54,7 @@ Saludos.`,
 
                 html: `<p>Buenas,</p>
 <p>Estimado colaborador, necesito que me envíen un presupuesto para lo siguiente:</p>
-<p>${mensaje}</p>
+<p>${messaggioFormattato}</p>
 <p>Saludos.</p>`,
             });
         });
