@@ -17,10 +17,26 @@
 </head>
 <body>
     <h1>Buscar Transportistas</h1>
+
     <label for="origen">Origen:</label>
     <input type="text" id="origen" placeholder="Ingrese origen" />
+
     <label for="destino">Destino:</label>
     <input type="text" id="destino" placeholder="Ingrese destino" />
+
+    <br/>
+
+    <label>Filtros adicionales:</label><br/>
+    <input type="checkbox" id="todos" checked />
+    <label for="todos">Todos</label>
+
+    <input type="checkbox" id="adr" />
+    <label for="adr">ADR</label>
+
+    <input type="checkbox" id="completo" />
+    <label for="completo">Completo</label>
+    <br/>
+
     <button onclick="buscarTransportistas()">Buscar</button>
 
     <table>
@@ -32,6 +48,8 @@
                 <th>Dirección</th>
                 <th>Teléfono</th>
                 <th>Email</th>
+                <th>ADR</th>
+                <th>Completo</th>
             </tr>
         </thead>
         <tbody id="resultado"></tbody>
@@ -46,22 +64,54 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA";
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // Logica checkbox intelligente
+        const todosCheckbox = document.getElementById("todos");
+        const adrCheckbox = document.getElementById("adr");
+        const completoCheckbox = document.getElementById("completo");
+
+        todosCheckbox.addEventListener("change", () => {
+            if (todosCheckbox.checked) {
+                adrCheckbox.disabled = true;
+                completoCheckbox.disabled = true;
+                adrCheckbox.checked = false;
+                completoCheckbox.checked = false;
+            } else {
+                adrCheckbox.disabled = false;
+                completoCheckbox.disabled = false;
+            }
+        });
+
         async function buscarTransportistas() {
             const origen = document.getElementById("origen").value.trim().toLowerCase();
             const destino = document.getElementById("destino").value.trim().toLowerCase();
             const resultadoTabla = document.getElementById("resultado");
             resultadoTabla.innerHTML = "";
 
+            const todosChecked = todosCheckbox.checked;
+            const adrChecked = adrCheckbox.checked;
+            const completoChecked = completoCheckbox.checked;
+
             if (origen === "" || destino === "") {
                 alert("⚠️ Por favor, ingrese origen y destino.");
                 return;
             }
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from("transportistas")
-                .select("nombre_transportista, total_viajes, direccion, telefono, telefono_movil, email")
+                .select("nombre_transportista, total_viajes, direccion, telefono, telefono_movil, email, adr, completo")
                 .ilike("origen", `%${origen}%`)
                 .ilike("destino", `%${destino}%`);
+
+            if (!todosChecked) {
+                if (adrChecked) {
+                    query = query.ilike("adr", "si");
+                }
+                if (completoChecked) {
+                    query = query.ilike("completo", "si");
+                }
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error("❌ Error en la consulta:", error);
@@ -70,7 +120,7 @@
             }
 
             if (data.length === 0) {
-                resultadoTabla.innerHTML = "<tr><td colspan='6'>❌ No se encontraron transportistas.</td></tr>";
+                resultadoTabla.innerHTML = "<tr><td colspan='8'>❌ No se encontraron transportistas.</td></tr>";
                 return;
             }
 
@@ -85,6 +135,8 @@
                         direccion: transp.direccion || "-",
                         telefono: transp.telefono || transp.telefono_movil || "-",
                         email: transp.email || "-",
+                        adr: transp.adr || "-",
+                        completo: transp.completo || "-"
                     };
                 }
 
@@ -101,6 +153,8 @@
                     <td>${transp.direccion}</td>
                     <td>${transp.telefono}</td>
                     <td>${transp.email}</td>
+                    <td>${transp.adr}</td>
+                    <td>${transp.completo}</td>
                 </tr>`;
 
                 resultadoTabla.innerHTML += fila;
