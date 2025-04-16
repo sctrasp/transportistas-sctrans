@@ -1,35 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <title>Resumen de Cotizaciones</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumen de Cotizaciones Solicitadas</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <style>
-        body { font-family: Arial; padding: 20px; }
-        .card {
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        .card h3 { margin-top: 0; }
-        textarea, input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 6px;
-            margin-bottom: 10px;
-        }
-        button {
-            padding: 6px 12px;
-            background: #0033a0;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { text-align: center; }
+        .bloque { border: 1px solid #ccc; padding: 20px; margin-bottom: 30px; border-radius: 8px; }
+        .fila { margin-bottom: 15px; }
+        input, textarea { width: 100%; padding: 8px; font-size: 14px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
         th { background-color: #0033a0; color: white; }
+        button { padding: 10px 20px; background-color: #0033a0; color: white; border: none; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -37,72 +22,77 @@
     <div id="contenedor"></div>
 
     <script>
-        const supabase = window.supabase.createClient(
-            "https://dikaacfsinyptsgxbuyd.supabase.co",
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
-        );
+        const SUPABASE_URL = "https://dikaacfsinyptsgxbuyd.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        async function cargarCotizaciones() {
+        let cotizacionId = null;
+
+        async function cargarResumen() {
             const { data, error } = await supabase
                 .from("cotizaciones_solicitadas")
                 .select("*")
-                .order("fecha", { ascending: false });
+                .order("creado_en", { ascending: false })
+                .limit(1);
 
-            if (error) {
-                alert("Error al cargar cotizaciones.");
-                console.error(error);
+            if (error || !data || data.length === 0) {
+                document.getElementById("contenedor").innerHTML = "<p>No hay cotizaciones.</p>";
                 return;
             }
 
-            const contenedor = document.getElementById("contenedor");
-            contenedor.innerHTML = "";
+            const cot = data[0];
+            cotizacionId = cot.id;
 
-            data.forEach(cotizacion => {
-                const div = document.createElement("div");
-                div.className = "card";
+            let html = `<div class='bloque'>
+                <h3>${cot.origen.toUpperCase()} ➔ ${cot.destino.toUpperCase()}</h3>
+                <p><strong>Fecha:</strong> ${new Date(cot.creado_en).toLocaleString()}</p>
 
-                const precios = cotizacion.precios || {};
-                const emailList = cotizacion.emails_contactados || [];
-
-                div.innerHTML = `
-                    <h3>${cotizacion.origen.toUpperCase()} ➜ ${cotizacion.destino.toUpperCase()}</h3>
-                    <p><strong>Fecha:</strong> ${new Date(cotizacion.fecha).toLocaleString()}</p>
+                <div class='fila'>
                     <label><strong>Referencia cliente:</strong></label>
-                    <input type="text" value="${cotizacion.referencia_cliente || ""}" id="ref-${cotizacion.id}" />
+                    <input type='text' id='referencia' value='${cot.referencia_cliente || ""}' />
+                </div>
 
+                <div class='fila'>
                     <label><strong>Mensaje enviado:</strong></label>
-                    <textarea rows="3" readonly>${cotizacion.mensaje || ""}</textarea>
+                    <textarea rows='4' readonly>${cot.mensaje}</textarea>
+                </div>
 
-                    <h4>Transportistas:</h4>
-                    <table>
-                        <thead>
-                            <tr><th>Email</th><th>Precio (€)</th></tr>
-                        </thead>
-                        <tbody>
-                            ${emailList.map(email => `
-                                <tr>
-                                    <td>${email}</td>
-                                    <td><input type="number" value="${precios[email] || ""}" id="precio-${cotizacion.id}-${email}" /></td>
-                                </tr>
-                            `).join("")}
-                        </tbody>
-                    </table>
+                <div class='fila'><strong>Transportistas:</strong></div>
+                <table>
+                    <tr><th>Email</th><th>Precio (€)</th></tr>`;
 
-                    <button onclick="guardar('${cotizacion.id}', ${JSON.stringify(emailList)})">💾 Guardar</button>
-                `;
-
-                contenedor.appendChild(div);
+            cot.emails_contactados.forEach(email => {
+                const precioGuardado = cot.precios?.[email] || "";
+                html += `<tr>
+                    <td class="email-row" data-email="${email}">${email}</td>
+                    <td><input class="input-precio" data-email="${email}" value="${precioGuardado}" /></td>
+                </tr>`;
             });
+
+            html += `</table>
+                <br/><button onclick='guardarCambios()'>💾 Guardar</button>
+            </div>`;
+
+            document.getElementById("contenedor").innerHTML = html;
         }
 
-        async function guardar(id, emails) {
-            const referencia = document.getElementById(`ref-${id}`).value;
+        async function guardarCambios() {
+            const referencia = document.getElementById("referencia").value;
+            const preciosInputs = document.querySelectorAll(".input-precio");
             const precios = {};
 
-            emails.forEach(email => {
-                const precio = document.getElementById(`precio-${id}-${email}`).value;
-                if (precio) precios[email] = parseFloat(precio);
+            preciosInputs.forEach(input => {
+                const email = input.dataset.email;
+                const valor = input.value.trim();
+                if (email && valor !== "") {
+                    precios[email] = valor;
+                }
             });
+
+            if (!cotizacionId) {
+                alert("❌ No se encontró el ID de la cotización.");
+                return;
+            }
 
             const { error } = await supabase
                 .from("cotizaciones_solicitadas")
@@ -110,17 +100,17 @@
                     referencia_cliente: referencia,
                     precios: precios
                 })
-                .eq("id", id);
+                .eq("id", cotizacionId);
 
             if (error) {
-                alert("❌ Error al guardar.");
-                console.error(error);
+                console.error("❌ Error al guardar en Supabase:", error);
+                alert("❌ Error al guardar los datos.");
             } else {
-                alert("✅ Guardado correctamente.");
+                alert("✅ Datos guardados correctamente.");
             }
         }
 
-        cargarCotizaciones();
+        cargarResumen();
     </script>
 </body>
 </html>
