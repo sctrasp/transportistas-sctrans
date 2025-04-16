@@ -3,149 +3,104 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resumen Histórico</title>
+  <title>Resumen de Cotizaciones Solicitadas</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f9f9f9;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .contenedor-cotizaciones {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-    }
-    .card {
-      background-color: white;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 15px;
-      width: 400px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .card h2 {
-      font-size: 18px;
-      margin-top: 0;
-    }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 10px;
-    }
-    textarea, input[type="text"], input[type="number"] {
-      width: 100%;
-      padding: 6px;
-      margin-top: 5px;
-      box-sizing: border-box;
-      font-size: 14px;
-    }
-    table {
-      width: 100%;
-      margin-top: 10px;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 4px;
-      font-size: 13px;
-    }
-    th {
-      background-color: #0033a0;
-      color: white;
-    }
-    button {
-      margin-top: 10px;
-      padding: 6px 12px;
-      background-color: #0033a0;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f6f6f6; }
+    h1 { text-align: center; }
+    .cotizacion { background: white; border-radius: 10px; padding: 15px; margin: 20px auto; max-width: 900px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
+    .fecha { font-weight: bold; }
+    textarea, input { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 15px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+    th { background-color: #002f86; color: white; }
+    .btnGuardar {
+      background: #0033a0; color: white; padding: 6px 12px;
+      border: none; border-radius: 5px; cursor: pointer;
+      position: absolute; top: 15px; right: 15px;
     }
   </style>
 </head>
 <body>
   <h1>Resumen de Cotizaciones Solicitadas</h1>
-  <div class="contenedor-cotizaciones" id="contenedor"></div>
+  <div id="contenedor"></div>
+
   <script>
     const supabase = window.supabase.createClient(
       "https://dikaacfsinyptsgxbuyd.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
     );
 
-    async function cargarCotizaciones() {
+    async function cargarDatos() {
       const { data, error } = await supabase
         .from("cotizaciones_solicitadas")
         .select("id, origen, destino, fecha, emails_contactados, referencia_cliente, mensaje, precios")
         .order("fecha", { ascending: false });
 
-      if (error) {
-        console.error("Error al cargar cotizaciones:", error);
-        return;
-      }
+      if (error) return console.error("Error al cargar cotizaciones:", error);
 
       const contenedor = document.getElementById("contenedor");
+      contenedor.innerHTML = "";
+
       data.forEach(row => {
         const div = document.createElement("div");
-        div.className = "card";
+        div.className = "cotizacion";
+
+        const precios = row.precios || {};
+
         div.innerHTML = `
-          <h2>${row.origen?.toUpperCase() || "-"} ➔ ${row.destino?.toUpperCase() || "-"}</h2>
-          <p><strong>Fecha:</strong> ${new Date(row.fecha).toLocaleString()}</p>
+          <button class="btnGuardar" onclick="guardarCotizacion('${row.id}')">💾 Guardar</button>
+          <div class="fecha">${row.origen.toUpperCase()} ➔ ${row.destino.toUpperCase()}<br>Fecha: ${new Date(row.fecha).toLocaleString()}</div>
 
           <label>Referencia cliente:</label>
-          <input type="text" value="${row.referencia_cliente || ''}" onchange="actualizarCampo('${row.id}', 'referencia_cliente', this.value)" />
+          <input type="text" id="ref-${row.id}" value="${row.referencia_cliente || ""}">
 
           <label>Mensaje enviado:</label>
-          <textarea rows="4" onchange="actualizarCampo('${row.id}', 'mensaje', this.value)">${row.mensaje || ''}</textarea>
+          <textarea rows="4" id="msg-${row.id}">${row.mensaje || ""}</textarea>
 
           <label>Transportistas:</label>
           <table>
             <thead><tr><th>Email</th><th>Precio (€)</th></tr></thead>
             <tbody>
-              ${row.emails_contactados.map(email => {
-                const precio = row.precios?.[email] || "";
-                return `<tr>
+              ${row.emails_contactados.map(email => `
+                <tr>
                   <td>${email}</td>
-                  <td><input type='number' value='${precio}' onchange="guardarPrecio('${row.id}', '${email}', this.value)" style='width:80px'/></td>
-                </tr>`;
-              }).join("")}
+                  <td><input type="number" step="0.01" id="${row.id}-${email}" value="${precios[email] || ""}" /></td>
+                </tr>
+              `).join("")}
             </tbody>
           </table>
         `;
+
         contenedor.appendChild(div);
       });
     }
 
-    async function guardarPrecio(id, email, precio) {
-      const { data: cot } = await supabase
-        .from("cotizaciones_solicitadas")
-        .select("precios")
-        .eq("id", id)
-        .single();
+    async function guardarCotizacion(id) {
+      const ref = document.getElementById(`ref-${id}`).value;
+      const msg = document.getElementById(`msg-${id}`).value;
+      const inputs = document.querySelectorAll(`input[id^='${id}-']`);
+      let precios = {};
+      inputs.forEach(input => {
+        const email = input.id.split("-").slice(1).join("-");
+        const valor = input.value.trim();
+        if (valor !== "") precios[email] = parseFloat(valor);
+      });
 
-      const nuevosPrecios = cot.precios || {};
-      nuevosPrecios[email] = parseFloat(precio);
-
-      await supabase
+      const { error } = await supabase
         .from("cotizaciones_solicitadas")
-        .update({ precios: nuevosPrecios })
+        .update({ referencia_cliente: ref, mensaje: msg, precios: precios, actualizado_en: new Date() })
         .eq("id", id);
+
+      if (error) {
+        alert("❌ Error al guardar");
+        console.error(error);
+      } else {
+        alert("✅ Datos guardados correctamente");
+      }
     }
 
-    async function actualizarCampo(id, campo, valor) {
-      await supabase
-        .from("cotizaciones_solicitadas")
-        .update({ [campo]: valor })
-        .eq("id", id);
-    }
-
-    cargarCotizaciones();
+    cargarDatos();
   </script>
 </body>
 </html>
