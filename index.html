@@ -16,6 +16,13 @@
     </style>
 </head>
 <body>
+    <div style="text-align: right; margin-bottom: 10px;">
+        <button style="background-color: #0033a0; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer;"
+            onclick="window.location.href='resumen.html'">
+            📄 Ver resumen de cotizaciones
+        </button>
+    </div>
+    
     <h1>Buscar Transportistas</h1>
 
     <label for="origen">Origen:</label>
@@ -167,7 +174,6 @@
                 resultadoTabla.innerHTML += fila;
             });
 
-            // Attiva il "select all"
             selectAllCheckbox.addEventListener("change", () => {
                 const checkboxes = document.querySelectorAll(".check-email");
                 checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
@@ -177,50 +183,41 @@
         }
 
         async function enviarPresupuesto() {
-    const selectedEmails = [...document.querySelectorAll('.check-email:checked')].map(cb => cb.value);
-    const mensaje = document.getElementById("mensaje").value;
-    const origen = document.getElementById("origen").value.trim();
-    const destino = document.getElementById("destino").value.trim();
+            const selectedEmails = [...document.querySelectorAll('.check-email:checked')].map(cb => cb.value);
+            const mensaje = document.getElementById("mensaje").value;
+            const origen = document.getElementById("origen").value.trim();
+            const destino = document.getElementById("destino").value.trim();
 
-    if (selectedEmails.length === 0) {
-        alert("Por favor, seleccione al menos un transportista.");
-        return;
-    }
-
-    if (!mensaje) {
-        alert("Por favor, escribe el mensaje que estás enviando.");
-        return;
-    }
-
-    // Guardar en Supabase
-    const { data, error } = await supabase
-        .from("cotizaciones_solicitadas")
-        .insert([
-            {
-                origen: origen,
-                destino: destino,
-                emails_contactados: selectedEmails,
-                mensaje: mensaje
+            if (selectedEmails.length === 0) {
+                alert("Por favor, seleccione al menos un transportista.");
+                return;
             }
-        ]);
 
-    if (error) {
-        console.error("Error al guardar en Supabase:", error);
-        alert("❌ Hubo un error al guardar la solicitud.");
-        return;
-    }
+            if (!mensaje) {
+                alert("Por favor, escribe el mensaje que estás enviando.");
+                return;
+            }
 
-    alert("✅ Solicitud guardada correctamente en Supabase.");
-    // (opzionale) reindirizzare alla pagina resumen
-    // window.location.href = "resumen.html";
-}
+            // Guardar en Supabase
+            const { data, error } = await supabase
+                .from("cotizaciones_solicitadas")
+                .insert([{
+                    origen: origen,
+                    destino: destino,
+                    emails_contactados: selectedEmails,
+                    mensaje: mensaje
+                }]);
 
+            if (error) {
+                console.error("❌ Error al guardar en Supabase:", error);
+                alert("❌ Error al guardar la solicitud en Supabase.");
+                return;
+            }
 
+            // Enviar emails
             fetch("/.netlify/functions/sendEmail", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     emails: selectedEmails,
                     mensaje: mensaje
@@ -228,12 +225,13 @@
             })
             .then(response => response.json())
             .then(data => {
-                alert(data.message || "Presupuesto solicitado correctamente!");
+                alert(data.message || "✅ Presupuesto solicitado correctamente!");
             })
             .catch(error => {
-                console.error("Error al enviar el presupuesto:", error);
-                alert("Ocurrió un error al enviar el presupuesto.");
+                console.error("❌ Error al enviar el presupuesto:", error);
+                alert("❌ Error al enviar los emails.");
             });
+        }
     </script>
 </body>
 </html>
