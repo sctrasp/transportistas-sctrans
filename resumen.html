@@ -6,101 +6,130 @@
   <title>Resumen de Cotizaciones Solicitadas</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f6f6f6; }
+    body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { text-align: center; }
-    .cotizacion { background: white; border-radius: 10px; padding: 15px; margin: 20px auto; max-width: 900px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
-    .fecha { font-weight: bold; }
-    textarea, input { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 15px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
-    th { background-color: #002f86; color: white; }
-    .btnGuardar {
-      background: #0033a0; color: white; padding: 6px 12px;
-      border: none; border-radius: 5px; cursor: pointer;
-      position: absolute; top: 15px; right: 15px;
+    .card {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 30px;
+      border-radius: 5px;
     }
+    .header { display: flex; justify-content: space-between; align-items: center; }
+    textarea, input[type="text"] { width: 100%; padding: 5px; margin: 5px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background-color: #0033a0; color: white; }
+    button { padding: 6px 15px; background-color: #0033a0; color: white; border: none; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h1>Resumen de Cotizaciones Solicitadas</h1>
+  <label><strong>Buscar transportista por nombre:</strong></label>
+  <input type="text" id="buscador" placeholder="Buscar..." />
+
   <div id="contenedor"></div>
 
   <script>
-    const supabase = window.supabase.createClient(
-      "https://dikaacfsinyptsgxbuyd.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
-    );
+    const SUPABASE_URL = "https://dikaacfsinyptsgxbuyd.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function cargarDatos() {
-      const { data, error } = await supabase
-        .from("cotizaciones_solicitadas")
-        .select("id, origen, destino, fecha, emails_contactados, referencia_cliente, mensaje, precios")
-        .order("fecha", { ascending: false });
-
-      if (error) return console.error("Error al cargar cotizaciones:", error);
-
+    async function cargarCotizaciones() {
       const contenedor = document.getElementById("contenedor");
+      contenedor.innerHTML = "Cargando...";
+
+      const { data, error } = await supabase.from("cotizaciones_solicitadas").select("*").order("creado_en", { ascending: false });
+
+      if (error) {
+        contenedor.innerHTML = "❌ Error al cargar cotizaciones";
+        return;
+      }
+
       contenedor.innerHTML = "";
 
-      data.forEach(row => {
+      data.forEach((coti, index) => {
         const div = document.createElement("div");
-        div.className = "cotizacion";
+        div.className = "card";
 
-        const precios = row.precios || {};
+        const precios = coti.precios || {}; // jsonb field
 
-        div.innerHTML = `
-          <button class="btnGuardar" onclick="guardarCotizacion('${row.id}')">💾 Guardar</button>
-          <div class="fecha">${row.origen.toUpperCase()} ➔ ${row.destino.toUpperCase()}<br>Fecha: ${new Date(row.fecha).toLocaleString()}</div>
+        let html = `
+          <div class="header">
+            <strong>${coti.origen.toUpperCase()} ➔ ${coti.destino.toUpperCase()}</strong>
+            <span><strong>Fecha:</strong> ${new Date(coti.creado_en).toLocaleString()}</span>
+          </div>
 
-          <label>Referencia cliente:</label>
-          <input type="text" id="ref-${row.id}" value="${row.referencia_cliente || ""}">
+          <label><strong>Referencia cliente:</strong></label>
+          <input type="text" value="${coti.referencia_cliente || ""}" id="ref-${index}" />
 
-          <label>Mensaje enviado:</label>
-          <textarea rows="4" id="msg-${row.id}">${row.mensaje || ""}</textarea>
+          <label><strong>Mensaje enviado:</strong></label>
+          <textarea rows="4" id="msg-${index}">${coti.mensaje || ""}</textarea>
 
-          <label>Transportistas:</label>
-          <table>
-            <thead><tr><th>Email</th><th>Precio (€)</th></tr></thead>
+          <label><strong>Transportistas:</strong></label>
+          <table class="tabla">
+            <thead><tr><th>Nombre</th><th>Precio (€)</th></tr></thead>
             <tbody>
-              ${row.emails_contactados.map(email => `
-                <tr>
-                  <td>${email}</td>
-                  <td><input type="number" step="0.01" id="${row.id}-${email}" value="${precios[email] || ""}" /></td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
         `;
 
+        (coti.emails_contactados || []).forEach((email, i) => {
+          const nombre = email.split("@")[0].replace(/\./g, " ");
+          const precio = precios[email] || "";
+
+          html += `
+            <tr class="fila-transportista">
+              <td>${nombre}</td>
+              <td><input type="text" value="${precio}" data-email="${email}" data-index="${index}" /></td>
+            </tr>
+          `;
+        });
+
+        html += `</tbody></table>
+          <br><button onclick="guardar(${index})">💾 Guardar</button>
+        `;
+
+        div.innerHTML = html;
         contenedor.appendChild(div);
       });
     }
 
-    async function guardarCotizacion(id) {
-      const ref = document.getElementById(`ref-${id}`).value;
-      const msg = document.getElementById(`msg-${id}`).value;
-      const inputs = document.querySelectorAll(`input[id^='${id}-']`);
+    async function guardar(index) {
+      const ref = document.getElementById(`ref-${index}`).value;
+      const msg = document.getElementById(`msg-${index}`).value;
+      const tabla = document.querySelectorAll(".card")[index].querySelectorAll("tbody input");
       let precios = {};
-      inputs.forEach(input => {
-        const email = input.id.split("-").slice(1).join("-");
+
+      tabla.forEach(input => {
+        const email = input.getAttribute("data-email");
         const valor = input.value.trim();
-        if (valor !== "") precios[email] = parseFloat(valor);
+        if (valor) precios[email] = parseFloat(valor);
       });
 
-      const { error } = await supabase
-        .from("cotizaciones_solicitadas")
-        .update({ referencia_cliente: ref, mensaje: msg, precios: precios, actualizado_en: new Date() })
-        .eq("id", id);
+      const { error } = await supabase.from("cotizaciones_solicitadas").update({
+        referencia_cliente: ref,
+        mensaje: msg,
+        precios: precios,
+        actualizado_en: new Date()
+      }).eq("id", window.ids[index]);
 
-      if (error) {
-        alert("❌ Error al guardar");
-        console.error(error);
-      } else {
-        alert("✅ Datos guardados correctamente");
-      }
+      if (error) alert("❌ Error al guardar");
+      else alert("✅ Guardado correctamente");
     }
 
-    cargarDatos();
+    // Cargar IDs separati per update
+    (async () => {
+      const { data } = await supabase.from("cotizaciones_solicitadas").select("id").order("creado_en", { ascending: false });
+      window.ids = data.map(row => row.id);
+      cargarCotizaciones();
+    })();
+
+    // Filtro transportista
+    document.getElementById("buscador").addEventListener("input", e => {
+      const texto = e.target.value.toLowerCase();
+      document.querySelectorAll(".card").forEach(card => {
+        const contiene = card.innerText.toLowerCase().includes(texto);
+        card.style.display = contiene ? "block" : "none";
+      });
+    });
   </script>
 </body>
 </html>
