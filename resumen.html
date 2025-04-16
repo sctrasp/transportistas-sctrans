@@ -1,156 +1,107 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resumen de Cotizaciones Solicitadas</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    .resumen-box {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 20px;
-    }
-    .titulo {
-      font-size: 20px;
-      font-weight: bold;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      font-size: 14px;
-    }
-    th {
-      background-color: #0033a0;
-      color: white;
-    }
-    input[type="text"] {
-      padding: 6px;
-      width: 100%;
-    }
-    textarea {
-      width: 100%;
-      padding: 6px;
-      height: 80px;
-    }
-    .guardar-btn {
-      background-color: #0033a0;
-      color: white;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      margin-bottom: 10px;
-      float: right;
-      cursor: pointer;
-    }
-    #filtroNombre {
-      margin: 10px 0;
-      padding: 6px;
-      width: 250px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Resumen de Cotizaciones Solicitadas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #002f86; color: white; }
+        input[type="text"] { width: 100%; padding: 6px; box-sizing: border-box; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; }
+        .guardar-btn { background: #002f86; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        .guardar-btn:hover { background: #001c57; }
+    </style>
 </head>
 <body>
-  <h1>Resumen de Cotizaciones Solicitadas</h1>
+<h1>Resumen de Cotizaciones Solicitadas</h1>
 
-  <div class="resumen-box">
-    <div class="titulo" id="infoRuta"></div>
-    <p><strong>Fecha:</strong> <span id="infoFecha"></span></p>
+<div class="top-bar">
+    <div>
+        <h3>VALENCIA ➔ BARCELONA</h3>
+        <p><strong>Fecha:</strong> <span id="fecha"></span></p>
+    </div>
+    <button class="guardar-btn" onclick="guardarCotizacion()">💾 Guardar</button>
+</div>
 
-    <label><strong>Referencia cliente:</strong></label>
-    <input type="text" id="referenciaCliente" placeholder="Ej: Re: Transporte Madrid - Valencia" />
+<label for="referencia">Referencia cliente:</label>
+<input type="text" id="referencia" placeholder="Ej: Re: Transporte Madrid - Valencia">
+<br><br>
 
-    <label><strong>Mensaje enviado:</strong></label>
-    <textarea id="mensajeEnviado"></textarea>
+<label for="mensaje">Mensaje enviado:</label>
+<textarea id="mensaje" rows="5" style="width: 100%"></textarea>
+<br>
 
-    <label><strong>Buscar transportista:</strong></label>
-    <input type="text" id="filtroNombre" placeholder="Filtrar por email...">
+<label>Buscar transportista: </label>
+<input type="text" id="filtro" placeholder="Filtrar por email..." oninput="filtrarTransportistas()">
 
-    <table>
-      <thead>
-        <tr><th>Email</th><th>Precio (€)</th></tr>
-      </thead>
-      <tbody id="tablaTransportistas"></tbody>
-    </table>
-
-    <button class="guardar-btn" onclick="guardarDatos()">💾 Guardar</button>
-  </div>
+<table>
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>Precio (€)</th>
+        </tr>
+    </thead>
+    <tbody id="tabla-transportistas">
+        <!-- Se rellena por JS -->
+    </tbody>
+</table>
 
 <script>
-  const supabase = window.supabase.createClient(
-    "https://dikaacfsinyptsgxbuyd.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
-  );
+    const SUPABASE_URL = "https://dikaacfsinyptsgxbuyd.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const params = new URLSearchParams(window.location.search);
-  const fecha = params.get("fecha") || new Date().toLocaleString();
-  const origen = params.get("origen") || "VALENCIA";
-  const destino = params.get("destino") || "BARCELONA";
-  const mensaje = params.get("mensaje") || "";
-  const emails = params.get("emails") ? JSON.parse(decodeURIComponent(params.get("emails"))) : [];
+    document.getElementById("fecha").textContent = new Date().toLocaleString();
 
-  document.getElementById("infoRuta").textContent = `${origen.toUpperCase()} ➜ ${destino.toUpperCase()}`;
-  document.getElementById("infoFecha").textContent = fecha;
-  document.getElementById("mensajeEnviado").value = mensaje;
+    async function cargarTransportistas() {
+        const { data, error } = await supabase
+            .from("transportistas")
+            .select("email")
+            .order("email");
 
-  const tabla = document.getElementById("tablaTransportistas");
-  emails.forEach(email => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${email}</td><td><input type="text" data-email="${email}" /></td>`;
-    tabla.appendChild(tr);
-  });
-
-  document.getElementById("filtroNombre").addEventListener("input", function() {
-    const texto = this.value.toLowerCase();
-    const filas = tabla.querySelectorAll("tr");
-    filas.forEach(fila => {
-      const correo = fila.children[0].textContent.toLowerCase();
-      fila.style.display = correo.includes(texto) ? "" : "none";
-    });
-  });
-
-  async function guardarDatos() {
-    const referencia = document.getElementById("referenciaCliente").value.trim();
-    const mensaje = document.getElementById("mensajeEnviado").value.trim();
-    const precios = {};
-
-    tabla.querySelectorAll("input[type=text]").forEach(input => {
-      const correo = input.dataset.email;
-      const valor = input.value.trim();
-      if (valor) precios[correo] = valor;
-    });
-
-    const { data, error } = await supabase
-      .from("cotizaciones_solicitadas")
-      .insert([
-        {
-          origen,
-          destino,
-          fecha,
-          referencia_cliente: referencia,
-          mensaje,
-          emails_contactados: emails,
-          precios
+        if (error) {
+            console.error("Error al cargar transportistas:", error);
+            return;
         }
-      ]);
 
-    if (error) {
-      alert("❌ Error al guardar en Supabase");
-      console.error(error);
-    } else {
-      alert("✅ Guardado correctamente en Supabase");
+        const tbody = document.getElementById("tabla-transportistas");
+        tbody.innerHTML = "";
+
+        data.forEach(item => {
+            const row = document.createElement("tr");
+            const emailCell = document.createElement("td");
+            emailCell.textContent = item.email;
+
+            const precioCell = document.createElement("td");
+            const inputPrecio = document.createElement("input");
+            inputPrecio.type = "text";
+            inputPrecio.placeholder = "€";
+            precioCell.appendChild(inputPrecio);
+
+            row.appendChild(emailCell);
+            row.appendChild(precioCell);
+            tbody.appendChild(row);
+        });
     }
-  }
+
+    function filtrarTransportistas() {
+        const filtro = document.getElementById("filtro").value.toLowerCase();
+        const filas = document.querySelectorAll("#tabla-transportistas tr");
+        filas.forEach(fila => {
+            const email = fila.children[0].textContent.toLowerCase();
+            fila.style.display = email.includes(filtro) ? "" : "none";
+        });
+    }
+
+    function guardarCotizacion() {
+        alert("💾 Esta función guardará los datos en Supabase (por implementar)");
+    }
+
+    document.addEventListener("DOMContentLoaded", cargarTransportistas);
 </script>
+
 </body>
 </html>
