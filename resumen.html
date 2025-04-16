@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Resumen de Cotizaciones</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .card h3 { margin-top: 0; }
+        textarea, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 6px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 6px 12px;
+            background: #0033a0;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #0033a0; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Resumen de Cotizaciones Solicitadas</h1>
+    <div id="contenedor"></div>
+
+    <script>
+        const supabase = window.supabase.createClient(
+            "https://dikaacfsinyptsgxbuyd.supabase.co",
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
+        );
+
+        async function cargarCotizaciones() {
+            const { data, error } = await supabase
+                .from("cotizaciones_solicitadas")
+                .select("*")
+                .order("fecha", { ascending: false });
+
+            if (error) {
+                alert("Error al cargar cotizaciones.");
+                console.error(error);
+                return;
+            }
+
+            const contenedor = document.getElementById("contenedor");
+            contenedor.innerHTML = "";
+
+            data.forEach(cotizacion => {
+                const div = document.createElement("div");
+                div.className = "card";
+
+                const precios = cotizacion.precios || {};
+                const emailList = cotizacion.emails_contactados || [];
+
+                div.innerHTML = `
+                    <h3>${cotizacion.origen.toUpperCase()} ➜ ${cotizacion.destino.toUpperCase()}</h3>
+                    <p><strong>Fecha:</strong> ${new Date(cotizacion.fecha).toLocaleString()}</p>
+                    <label><strong>Referencia cliente:</strong></label>
+                    <input type="text" value="${cotizacion.referencia_cliente || ""}" id="ref-${cotizacion.id}" />
+
+                    <label><strong>Mensaje enviado:</strong></label>
+                    <textarea rows="3" readonly>${cotizacion.mensaje || ""}</textarea>
+
+                    <h4>Transportistas:</h4>
+                    <table>
+                        <thead>
+                            <tr><th>Email</th><th>Precio (€)</th></tr>
+                        </thead>
+                        <tbody>
+                            ${emailList.map(email => `
+                                <tr>
+                                    <td>${email}</td>
+                                    <td><input type="number" value="${precios[email] || ""}" id="precio-${cotizacion.id}-${email}" /></td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+
+                    <button onclick="guardar('${cotizacion.id}', ${JSON.stringify(emailList)})">💾 Guardar</button>
+                `;
+
+                contenedor.appendChild(div);
+            });
+        }
+
+        async function guardar(id, emails) {
+            const referencia = document.getElementById(`ref-${id}`).value;
+            const precios = {};
+
+            emails.forEach(email => {
+                const precio = document.getElementById(`precio-${id}-${email}`).value;
+                if (precio) precios[email] = parseFloat(precio);
+            });
+
+            const { error } = await supabase
+                .from("cotizaciones_solicitadas")
+                .update({
+                    referencia_cliente: referencia,
+                    precios: precios
+                })
+                .eq("id", id);
+
+            if (error) {
+                alert("❌ Error al guardar.");
+                console.error(error);
+            } else {
+                alert("✅ Guardado correctamente.");
+            }
+        }
+
+        cargarCotizaciones();
+    </script>
+</body>
+</html>

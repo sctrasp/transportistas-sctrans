@@ -176,14 +176,45 @@
             botonEnviar.disabled = false;
         }
 
-        function enviarPresupuesto() {
-            const selectedEmails = [...document.querySelectorAll('.check-email:checked')].map(cb => cb.value);
-            const mensaje = document.getElementById("mensaje").value;
+        async function enviarPresupuesto() {
+    const selectedEmails = [...document.querySelectorAll('.check-email:checked')].map(cb => cb.value);
+    const mensaje = document.getElementById("mensaje").value;
+    const origen = document.getElementById("origen").value.trim();
+    const destino = document.getElementById("destino").value.trim();
 
-            if (selectedEmails.length === 0) {
-                alert("Por favor, seleccione al menos un transportista.");
-                return;
+    if (selectedEmails.length === 0) {
+        alert("Por favor, seleccione al menos un transportista.");
+        return;
+    }
+
+    if (!mensaje) {
+        alert("Por favor, escribe el mensaje que estás enviando.");
+        return;
+    }
+
+    // Guardar en Supabase
+    const { data, error } = await supabase
+        .from("cotizaciones_solicitadas")
+        .insert([
+            {
+                origen: origen,
+                destino: destino,
+                emails_contactados: selectedEmails,
+                mensaje: mensaje
             }
+        ]);
+
+    if (error) {
+        console.error("Error al guardar en Supabase:", error);
+        alert("❌ Hubo un error al guardar la solicitud.");
+        return;
+    }
+
+    alert("✅ Solicitud guardada correctamente en Supabase.");
+    // (opzionale) reindirizzare alla pagina resumen
+    // window.location.href = "resumen.html";
+}
+
 
             fetch("/.netlify/functions/sendEmail", {
                 method: "POST",
@@ -203,7 +234,6 @@
                 console.error("Error al enviar el presupuesto:", error);
                 alert("Ocurrió un error al enviar el presupuesto.");
             });
-        }
     </script>
 </body>
 </html>
