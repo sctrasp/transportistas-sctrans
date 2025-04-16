@@ -6,132 +6,151 @@
   <title>Resumen de Cotizaciones Solicitadas</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { text-align: center; }
-    .card {
-      border: 1px solid #ccc;
-      padding: 15px;
-      margin-bottom: 30px;
-      border-radius: 5px;
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
     }
-    .header { display: flex; justify-content: space-between; align-items: center; }
-    textarea, input[type="text"] { width: 100%; padding: 5px; margin: 5px 0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-    th, td { border: 1px solid #ccc; padding: 6px; }
-    th { background-color: #0033a0; color: white; }
-    button { padding: 6px 15px; background-color: #0033a0; color: white; border: none; border-radius: 4px; }
-    .minimizable { cursor: pointer; color: #0033a0; text-decoration: underline; margin-top: 10px; display: inline-block; }
-    .hidden { display: none; }
+    .resumen-box {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .titulo {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      font-size: 14px;
+    }
+    th {
+      background-color: #0033a0;
+      color: white;
+    }
+    input[type="text"] {
+      padding: 6px;
+      width: 100%;
+    }
+    textarea {
+      width: 100%;
+      padding: 6px;
+      height: 80px;
+    }
+    .guardar-btn {
+      background-color: #0033a0;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      float: right;
+      cursor: pointer;
+    }
+    #filtroNombre {
+      margin: 10px 0;
+      padding: 6px;
+      width: 250px;
+    }
   </style>
 </head>
 <body>
   <h1>Resumen de Cotizaciones Solicitadas</h1>
-  <label><strong>Buscar transportista por nombre:</strong></label>
-  <input type="text" id="buscador" placeholder="Buscar..." />
 
-  <div id="contenedor"></div>
+  <div class="resumen-box">
+    <div class="titulo" id="infoRuta"></div>
+    <p><strong>Fecha:</strong> <span id="infoFecha"></span></p>
 
-  <script>
-    const SUPABASE_URL = "https://dikaacfsinyptsgxbuyd.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"; // usa la chiave reale
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <label><strong>Referencia cliente:</strong></label>
+    <input type="text" id="referenciaCliente" placeholder="Ej: Re: Transporte Madrid - Valencia" />
 
-    async function cargarCotizaciones() {
-      const contenedor = document.getElementById("contenedor");
-      contenedor.innerHTML = "Cargando...";
+    <label><strong>Mensaje enviado:</strong></label>
+    <textarea id="mensajeEnviado"></textarea>
 
-      const { data, error } = await supabase.from("cotizaciones_solicitadas").select("*").order("creado_en", { ascending: false });
+    <label><strong>Buscar transportista:</strong></label>
+    <input type="text" id="filtroNombre" placeholder="Filtrar por email...">
 
-      if (error) {
-        contenedor.innerHTML = "❌ Error al cargar cotizaciones";
-        return;
-      }
+    <table>
+      <thead>
+        <tr><th>Email</th><th>Precio (€)</th></tr>
+      </thead>
+      <tbody id="tablaTransportistas"></tbody>
+    </table>
 
-      contenedor.innerHTML = "";
-      window.ids = data.map(row => row.id);
+    <button class="guardar-btn" onclick="guardarDatos()">💾 Guardar</button>
+  </div>
 
-      data.forEach((coti, index) => {
-        const div = document.createElement("div");
-        div.className = "card";
+<script>
+  const supabase = window.supabase.createClient(
+    "https://dikaacfsinyptsgxbuyd.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
+  );
 
-        const precios = coti.precios || {};
+  const params = new URLSearchParams(window.location.search);
+  const fecha = params.get("fecha") || new Date().toLocaleString();
+  const origen = params.get("origen") || "VALENCIA";
+  const destino = params.get("destino") || "BARCELONA";
+  const mensaje = params.get("mensaje") || "";
+  const emails = params.get("emails") ? JSON.parse(decodeURIComponent(params.get("emails"))) : [];
 
-        let html = `
-          <div class="header">
-            <strong>${coti.origen.toUpperCase()} ➔ ${coti.destino.toUpperCase()}</strong>
-            <span><strong>Fecha:</strong> ${new Date(coti.creado_en).toLocaleString()}</span>
-          </div>
+  document.getElementById("infoRuta").textContent = `${origen.toUpperCase()} ➜ ${destino.toUpperCase()}`;
+  document.getElementById("infoFecha").textContent = fecha;
+  document.getElementById("mensajeEnviado").value = mensaje;
 
-          <label><strong>Referencia cliente:</strong></label>
-          <input type="text" value="${coti.referencia_cliente || ""}" id="ref-${index}" />
+  const tabla = document.getElementById("tablaTransportistas");
+  emails.forEach(email => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${email}</td><td><input type="text" data-email="${email}" /></td>`;
+    tabla.appendChild(tr);
+  });
 
-          <label><strong>Mensaje enviado:</strong></label>
-          <textarea rows="4" id="msg-${index}">${coti.mensaje || ""}</textarea>
+  document.getElementById("filtroNombre").addEventListener("input", function() {
+    const texto = this.value.toLowerCase();
+    const filas = tabla.querySelectorAll("tr");
+    filas.forEach(fila => {
+      const correo = fila.children[0].textContent.toLowerCase();
+      fila.style.display = correo.includes(texto) ? "" : "none";
+    });
+  });
 
-          <label class="minimizable" onclick="toggleTabla(${index})"><strong>Transportistas (clic para mostrar/ocultar):</strong></label>
-          <table class="tabla hidden" id="tabla-${index}">
-            <thead><tr><th>Nombre</th><th>Precio (€)</th></tr></thead>
-            <tbody>
-        `;
+  async function guardarDatos() {
+    const referencia = document.getElementById("referenciaCliente").value.trim();
+    const mensaje = document.getElementById("mensajeEnviado").value.trim();
+    const precios = {};
 
-        (coti.emails_contactados || []).forEach((email, i) => {
-          const nombre = email.split("@")[0].replace(/\./g, " ").toUpperCase();
-          const precio = precios[email] || "";
-
-          html += `
-            <tr class="fila-transportista">
-              <td>${nombre}</td>
-              <td><input type="text" value="${precio}" data-email="${email}" data-index="${index}" /></td>
-            </tr>
-          `;
-        });
-
-        html += `</tbody></table>
-          <br><button onclick="guardar(${index})">💾 Guardar</button>
-        `;
-
-        div.innerHTML = html;
-        contenedor.appendChild(div);
-      });
-    }
-
-    function toggleTabla(index) {
-      const tabla = document.getElementById(`tabla-${index}`);
-      tabla.classList.toggle("hidden");
-    }
-
-    async function guardar(index) {
-      const ref = document.getElementById(`ref-${index}`).value;
-      const msg = document.getElementById(`msg-${index}`).value;
-      const tabla = document.querySelectorAll(".card")[index].querySelectorAll("tbody input");
-      let precios = {};
-
-      tabla.forEach(input => {
-        const email = input.getAttribute("data-email");
-        const valor = input.value.trim();
-        if (valor) precios[email] = parseFloat(valor);
-      });
-
-      const { error } = await supabase.from("cotizaciones_solicitadas").update({
-        referencia_cliente: ref,
-        mensaje: msg,
-        precios: precios,
-        actualizado_en: new Date()
-      }).eq("id", window.ids[index]);
-
-      if (error) alert("❌ Error al guardar");
-      else alert("✅ Guardado correctamente");
-    }
-
-    document.getElementById("buscador").addEventListener("input", e => {
-      const texto = e.target.value.toLowerCase();
-      document.querySelectorAll(".card").forEach(card => {
-        const contiene = card.innerText.toLowerCase().includes(texto);
-        card.style.display = contiene ? "block" : "none";
-      });
+    tabla.querySelectorAll("input[type=text]").forEach(input => {
+      const correo = input.dataset.email;
+      const valor = input.value.trim();
+      if (valor) precios[correo] = valor;
     });
 
-    cargarCotizaciones();
-  </script>
+    const { data, error } = await supabase
+      .from("cotizaciones_solicitadas")
+      .insert([
+        {
+          origen,
+          destino,
+          fecha,
+          referencia_cliente: referencia,
+          mensaje,
+          emails_contactados: emails,
+          precios
+        }
+      ]);
+
+    if (error) {
+      alert("❌ Error al guardar en Supabase");
+      console.error(error);
+    } else {
+      alert("✅ Guardado correctamente en Supabase");
+    }
+  }
+</script>
 </body>
 </html>
