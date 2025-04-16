@@ -16,10 +16,12 @@
     }
     .header { display: flex; justify-content: space-between; align-items: center; }
     textarea, input[type="text"] { width: 100%; padding: 5px; margin: 5px 0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    th, td { border: 1px solid #ccc; padding: 6px; }
     th { background-color: #0033a0; color: white; }
     button { padding: 6px 15px; background-color: #0033a0; color: white; border: none; border-radius: 4px; }
+    .minimizable { cursor: pointer; color: #0033a0; text-decoration: underline; margin-top: 10px; display: inline-block; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -31,7 +33,7 @@
 
   <script>
     const SUPABASE_URL = "https://dikaacfsinyptsgxbuyd.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"; // usa la chiave reale
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     async function cargarCotizaciones() {
@@ -46,12 +48,13 @@
       }
 
       contenedor.innerHTML = "";
+      window.ids = data.map(row => row.id);
 
       data.forEach((coti, index) => {
         const div = document.createElement("div");
         div.className = "card";
 
-        const precios = coti.precios || {}; // jsonb field
+        const precios = coti.precios || {};
 
         let html = `
           <div class="header">
@@ -65,14 +68,14 @@
           <label><strong>Mensaje enviado:</strong></label>
           <textarea rows="4" id="msg-${index}">${coti.mensaje || ""}</textarea>
 
-          <label><strong>Transportistas:</strong></label>
-          <table class="tabla">
+          <label class="minimizable" onclick="toggleTabla(${index})"><strong>Transportistas (clic para mostrar/ocultar):</strong></label>
+          <table class="tabla hidden" id="tabla-${index}">
             <thead><tr><th>Nombre</th><th>Precio (€)</th></tr></thead>
             <tbody>
         `;
 
         (coti.emails_contactados || []).forEach((email, i) => {
-          const nombre = email.split("@")[0].replace(/\./g, " ");
+          const nombre = email.split("@")[0].replace(/\./g, " ").toUpperCase();
           const precio = precios[email] || "";
 
           html += `
@@ -90,6 +93,11 @@
         div.innerHTML = html;
         contenedor.appendChild(div);
       });
+    }
+
+    function toggleTabla(index) {
+      const tabla = document.getElementById(`tabla-${index}`);
+      tabla.classList.toggle("hidden");
     }
 
     async function guardar(index) {
@@ -115,14 +123,6 @@
       else alert("✅ Guardado correctamente");
     }
 
-    // Cargar IDs separati per update
-    (async () => {
-      const { data } = await supabase.from("cotizaciones_solicitadas").select("id").order("creado_en", { ascending: false });
-      window.ids = data.map(row => row.id);
-      cargarCotizaciones();
-    })();
-
-    // Filtro transportista
     document.getElementById("buscador").addEventListener("input", e => {
       const texto = e.target.value.toLowerCase();
       document.querySelectorAll(".card").forEach(card => {
@@ -130,6 +130,8 @@
         card.style.display = contiene ? "block" : "none";
       });
     });
+
+    cargarCotizaciones();
   </script>
 </body>
 </html>
