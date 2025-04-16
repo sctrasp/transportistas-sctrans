@@ -55,19 +55,23 @@
         <tbody id="resultado"></tbody>
     </table>
 
+    <br/>
+    <label><input type="checkbox" id="selectAll" /> Seleccionar todos los transportistas</label>
+
     <h2>Solicitar Presupuesto</h2>
     <textarea id="mensaje" placeholder="Escribe tu mensaje aquí..." rows="5" cols="50"></textarea><br/>
-    <button onclick="enviarPresupuesto()">Pide presupuesto</button>
+    <button id="btnEnviar" onclick="enviarPresupuesto()" disabled>Pide presupuesto</button>
 
     <script>
         const SUPABASE_URL = "https://dikaacfsinyptsgxbuyd.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA";
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Logica checkbox intelligente
         const todosCheckbox = document.getElementById("todos");
         const adrCheckbox = document.getElementById("adr");
         const completoCheckbox = document.getElementById("completo");
+        const botonEnviar = document.getElementById("btnEnviar");
+        const selectAllCheckbox = document.getElementById("selectAll");
 
         todosCheckbox.addEventListener("change", () => {
             if (todosCheckbox.checked) {
@@ -82,6 +86,9 @@
         });
 
         async function buscarTransportistas() {
+            botonEnviar.disabled = true;
+            selectAllCheckbox.checked = false;
+
             const origen = document.getElementById("origen").value.trim().toLowerCase();
             const destino = document.getElementById("destino").value.trim().toLowerCase();
             const resultadoTabla = document.getElementById("resultado");
@@ -147,7 +154,7 @@
                 const transp = transportistasAgrupados[nombre];
 
                 const fila = `<tr>
-                    <td><input type="checkbox" name="correo" value="${transp.email}" /></td>
+                    <td><input type="checkbox" class="check-email" value="${transp.email}" /></td>
                     <td>${nombre}</td>
                     <td>${transp.total_viajes}</td>
                     <td>${transp.direccion}</td>
@@ -159,10 +166,18 @@
 
                 resultadoTabla.innerHTML += fila;
             });
+
+            // Attiva il "select all"
+            selectAllCheckbox.addEventListener("change", () => {
+                const checkboxes = document.querySelectorAll(".check-email");
+                checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+            });
+
+            botonEnviar.disabled = false;
         }
 
         function enviarPresupuesto() {
-            const selectedEmails = [...document.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+            const selectedEmails = [...document.querySelectorAll('.check-email:checked')].map(cb => cb.value);
             const mensaje = document.getElementById("mensaje").value;
 
             if (selectedEmails.length === 0) {
