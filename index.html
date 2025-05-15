@@ -1,182 +1,162 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Buscar Transportistas</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; background-color: #f7f7f7; }
-    .container { max-width: 1200px; margin: auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
-    th { background-color: #0033a0; color: white; }
-    input, button, textarea { padding: 10px; margin: 10px 0; width: 100%; max-width: 300px; }
-    button { background-color: #0033a0; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:disabled { background-color: #aaa; cursor: not-allowed; }
-    .filters { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
-    .filters label { margin-right: 10px; }
-    .checkbox-group { margin-top: 10px; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Buscar Transportistas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #0033a0; color: white; }
+        input, button, textarea { padding: 10px; margin: 10px 5px; }
+        button { background-color: #0033a0; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        textarea { width: 100%; }
+        .top-right { text-align: right; }
+    </style>
 </head>
 <body>
 <div class="container">
-  <div style="text-align: right">
-    <button onclick="window.location.href='resumen.html'">📄 Ver resumen de cotizaciones</button>
-  </div>
+    <div class="top-right">
+        <button onclick="window.location.href='resumen.html'">📄 Ver resumen de cotizaciones</button>
+    </div>
+    <h1>Buscar Transportistas</h1>
 
-  <h1>Buscar Transportistas</h1>
-  <div class="filters">
-    <label>Origen:<br/><input type="text" id="origen" placeholder="Ej. Valencia" /></label>
-    <label>Destino:<br/><input type="text" id="destino" placeholder="Ej. Lugo" /></label>
-  </div>
-  <div class="checkbox-group">
-    <label><input type="checkbox" id="todos" checked /> Todos</label>
-    <label><input type="checkbox" id="adr" /> ADR</label>
-    <label><input type="checkbox" id="completo" /> Completo</label>
-  </div>
-  <button onclick="buscarTransportistas()">Buscar</button>
+    <label>Origen:</label>
+    <input type="text" id="origen" placeholder="Ej. Valencia">
+    <label>Destino:</label>
+    <input type="text" id="destino" placeholder="Ej. Lugo">
 
-  <table>
-    <thead>
-      <tr>
-        <th>Seleccionar</th>
-        <th>Nombre</th>
-        <th>Total Viajes</th>
-        <th>Dirección</th>
-        <th>Teléfono</th>
-        <th>Email</th>
-        <th>ADR</th>
-        <th>Completo</th>
-      </tr>
-    </thead>
-    <tbody id="resultado"></tbody>
-  </table>
-  <label><input type="checkbox" id="selectAll" /> Seleccionar todos</label>
+    <div>
+        <input type="checkbox" id="todos" checked> <label for="todos">Todos</label>
+        <input type="checkbox" id="adr"> <label for="adr">ADR</label>
+        <input type="checkbox" id="completo"> <label for="completo">Completo</label>
+    </div>
 
-  <h2>Solicitar Presupuesto</h2>
-  <textarea id="mensaje" placeholder="Escribe tu mensaje aquí..." rows="5"></textarea><br/>
-  <button id="btnEnviar" onclick="enviarPresupuesto()" disabled>Pide presupuesto</button>
+    <button onclick="buscarTransportistas()">Buscar</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Seleccionar</th>
+                <th>Nombre</th>
+                <th>Total Viajes</th>
+                <th>Dirección</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>ADR</th>
+                <th>Completo</th>
+            </tr>
+        </thead>
+        <tbody id="resultado"></tbody>
+    </table>
+
+    <label><input type="checkbox" id="selectAll"> Seleccionar todos</label>
+
+    <h2>Solicitar Presupuesto</h2>
+    <textarea id="mensaje" placeholder="Escribe tu mensaje aquí..." rows="5"></textarea><br>
+    <button id="btnEnviar" onclick="enviarPresupuesto()" disabled>Pide presupuesto</button>
 </div>
 
 <script>
-// Supabase init
-const supabase = window.supabase.createClient(
-  "https://dikaacfsinyptsgxbuyd.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
-);
+    const supabase = supabase.createClient(
+        "https://dikaacfsinyptsgxbuyd.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FhY2ZzaW55cHRzZ3hidXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNjY1MDEsImV4cCI6MjA1NjY0MjUwMX0.K23pCGbP_OB0_VEpZ5_8Uyauhsz4dUdTtYCymidElYA"
+    );
 
-const todosCheckbox = document.getElementById("todos");
-const adrCheckbox = document.getElementById("adr");
-const completoCheckbox = document.getElementById("completo");
-const botonEnviar = document.getElementById("btnEnviar");
-const selectAllCheckbox = document.getElementById("selectAll");
+    const normalize = str => str.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 
-todosCheckbox.addEventListener("change", () => {
-  adrCheckbox.disabled = todosCheckbox.checked;
-  completoCheckbox.disabled = todosCheckbox.checked;
-  if (todosCheckbox.checked) {
-    adrCheckbox.checked = false;
-    completoCheckbox.checked = false;
-  }
-});
+    async function buscarTransportistas() {
+        const origen = normalize(document.getElementById("origen").value);
+        const destino = normalize(document.getElementById("destino").value);
+        const todos = document.getElementById("todos").checked;
+        const adr = document.getElementById("adr").checked;
+        const completo = document.getElementById("completo").checked;
+        const tabla = document.getElementById("resultado");
+        tabla.innerHTML = "";
 
-function normalize(str) {
-  return str.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9 ]/g, "")
-    .trim().toLowerCase();
-}
+        if (!origen || !destino) return alert("⚠️ Especifica origen y destino.");
 
-async function buscarTransportistas() {
-  botonEnviar.disabled = true;
-  selectAllCheckbox.checked = false;
-  const resultadoTabla = document.getElementById("resultado");
-  resultadoTabla.innerHTML = "";
+        let query = supabase
+            .from("transportistas")
+            .select("nombre_transportista, total_viajes, direccion, telefono, telefono_movil, email, adr, completo")
+            .ilike("origen", `%${origen}%`)
+            .ilike("destino", `%${destino}%`);
 
-  const origen = normalize(document.getElementById("origen").value);
-  const destino = normalize(document.getElementById("destino").value);
-  if (!origen || !destino) return alert("⚠️ Escribe origen y destino");
+        if (!todos) {
+            if (adr) query = query.ilike("adr", "si");
+            if (completo) query = query.ilike("completo", "si");
+        }
 
-  let query = supabase.from("transportistas")
-    .select("nombre_transportista, total_viajes, direccion, telefono, telefono_movil, email, adr, completo")
-    .ilike("origen", `%${origen}%`)
-    .ilike("destino", `%${destino}%`);
+        const { data, error } = await query;
 
-  if (!todosCheckbox.checked) {
-    if (adrCheckbox.checked) query = query.ilike("adr", "si");
-    if (completoCheckbox.checked) query = query.ilike("completo", "si");
-  }
+        if (error || !data.length) {
+            tabla.innerHTML = "<tr><td colspan='8'>❌ No se encontraron resultados.</td></tr>";
+            return;
+        }
 
-  const { data, error } = await query;
-  if (error || !data.length) {
-    resultadoTabla.innerHTML = "<tr><td colspan='8'>❌ No se encontraron transportistas.</td></tr>";
-    return;
-  }
+        const agrupados = {};
 
-  const agrupados = {};
-  data.forEach(t => {
-    const nombre = t.nombre_transportista;
-    if (!agrupados[nombre]) {
-      agrupados[nombre] = {
-        total_viajes: 0,
-        direccion: t.direccion || "-",
-        telefono: t.telefono || t.telefono_movil || "-",
-        email: t.email || "-",
-        adr: t.adr || "-",
-        completo: t.completo || "-"
-      };
+        data.forEach(t => {
+            const nombre = t.nombre_transportista;
+            if (!agrupados[nombre]) {
+                agrupados[nombre] = {
+                    total_viajes: 0,
+                    direccion: t.direccion || "-",
+                    telefono: t.telefono || t.telefono_movil || "-",
+                    email: t.email || "-",
+                    adr: t.adr || "-",
+                    completo: t.completo || "-"
+                };
+            }
+            agrupados[nombre].total_viajes += t.total_viajes || 0;
+        });
+
+        for (const nombre in agrupados) {
+            const t = agrupados[nombre];
+            tabla.innerHTML += `
+                <tr>
+                    <td><input type="checkbox" class="check-email" value="${t.email}"/></td>
+                    <td>${nombre}</td>
+                    <td>${t.total_viajes}</td>
+                    <td>${t.direccion}</td>
+                    <td>${t.telefono}</td>
+                    <td>${t.email}</td>
+                    <td>${t.adr}</td>
+                    <td>${t.completo}</td>
+                </tr>`;
+        }
+
+        document.getElementById("btnEnviar").disabled = false;
+        document.getElementById("selectAll").addEventListener("change", e => {
+            document.querySelectorAll(".check-email").forEach(cb => cb.checked = e.target.checked);
+        });
     }
-    agrupados[nombre].total_viajes += t.total_viajes || 0;
-  });
 
-  Object.keys(agrupados).forEach(nombre => {
-    const t = agrupados[nombre];
-    resultadoTabla.innerHTML += `
-      <tr>
-        <td><input type="checkbox" class="check-email" value="${t.email}" /></td>
-        <td>${nombre}</td>
-        <td>${t.total_viajes}</td>
-        <td>${t.direccion}</td>
-        <td>${t.telefono}</td>
-        <td>${t.email}</td>
-        <td>${t.adr}</td>
-        <td>${t.completo}</td>
-      </tr>`;
-  });
+    async function enviarPresupuesto() {
+        const emails = [...document.querySelectorAll('.check-email:checked')].map(cb => cb.value);
+        const mensaje = document.getElementById("mensaje").value;
+        const origen = document.getElementById("origen").value.trim();
+        const destino = document.getElementById("destino").value.trim();
 
-  document.querySelectorAll(".check-email").forEach(cb => cb.checked = selectAllCheckbox.checked);
-  selectAllCheckbox.addEventListener("change", () => {
-    document.querySelectorAll(".check-email").forEach(cb => cb.checked = selectAllCheckbox.checked);
-  });
+        if (!emails.length) return alert("Selecciona al menos un transportista.");
+        if (!mensaje) return alert("Escribe un mensaje.");
 
-  botonEnviar.disabled = false;
-}
+        await supabase.from("cotizaciones_solicitadas").insert([{
+            origen, destino, emails_contactados: emails, mensaje
+        }]);
 
-async function enviarPresupuesto() {
-  const emails = [...document.querySelectorAll('.check-email:checked')].map(cb => cb.value);
-  const mensaje = document.getElementById("mensaje").value;
-  const origen = document.getElementById("origen").value;
-  const destino = document.getElementById("destino").value;
-
-  if (!emails.length) return alert("Selecciona al menos un transportista");
-  if (!mensaje.trim()) return alert("Escribe un mensaje");
-
-  const { error } = await supabase.from("cotizaciones_solicitadas").insert({
-    origen, destino, emails_contactados: emails, mensaje
-  });
-
-  if (error) return alert("Error al guardar la solicitud");
-
-  fetch("/.netlify/functions/sendEmail", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ emails, mensaje })
-  })
-  .then(res => res.json())
-  .then(data => alert(data.message || "✅ Presupuesto solicitado!"))
-  .catch(() => alert("❌ Error al enviar los emails"));
-}
+        fetch("/.netlify/functions/sendEmail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ emails, mensaje })
+        })
+        .then(r => r.json())
+        .then(d => alert(d.message || "✅ Presupuesto enviado."))
+        .catch(err => alert("❌ Error enviando email"));
+    }
 </script>
 </body>
 </html>
